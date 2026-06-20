@@ -170,7 +170,7 @@ export default function CaseSuspectManager({ caseId, initialLinkedSuspects, allS
                     <User size={20} />
                   </div>
                   <div>
-                    <Link href={`/suspects/${link.suspect.id}`} className="font-semibold text-white hover:text-red-500 transition-colors text-sm">
+                    <Link href={`/suspects/detail?id=${link.suspect.id}`} className="font-semibold text-white hover:text-red-500 transition-colors text-sm">
                       {link.suspect.fullName}
                     </Link>
                     <div className="flex items-center gap-2 mt-0.5">

@@ -134,7 +134,7 @@ function SearchContent() {
                   <p className="text-zinc-500 text-sm italic bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50">Không tìm thấy đối tượng nào khớp.</p>
                 ) : (
                   suspects.map(suspect => (
-                    <Link href={`/suspects/${suspect.id}`} key={suspect.id} className="block bg-zinc-900 border border-zinc-800 hover:border-red-500/50 rounded-xl p-4 transition-colors group">
+                    <Link href={`/suspects/detail?id=${suspect.id}`} key={suspect.id} className="block bg-zinc-900 border border-zinc-800 hover:border-red-500/50 rounded-xl p-4 transition-colors group">
                       <div className="flex justify-between items-start">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden relative">
@@ -173,7 +173,7 @@ function SearchContent() {
                   <p className="text-zinc-500 text-sm italic bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/50">Không tìm thấy vụ án nào khớp.</p>
                 ) : (
                   cases.map(c => (
-                    <Link href={`/cases/${c.id}`} key={c.id} className="block bg-zinc-900 border border-zinc-800 hover:border-red-500/50 rounded-xl p-4 transition-colors group">
+                    <Link href={`/cases/detail?id=${c.id}`} key={c.id} className="block bg-zinc-900 border border-zinc-800 hover:border-red-500/50 rounded-xl p-4 transition-colors group">
                       <div className="flex justify-between items-start mb-2">
                         <h4 className="font-medium text-white group-hover:text-red-400 transition-colors line-clamp-1 pr-4">{c.title}</h4>
                         <ArrowRight size={16} className="text-zinc-600 group-hover:text-red-500 transition-colors shrink-0" />

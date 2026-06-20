@@ -1,39 +1,63 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-interface SuspectData {
-  id: string
-  fullName: string
-  aliases: string | null
-  idNumber: string | null
-  dateOfBirth: string
-  address: string | null
-  bloodType: string | null
-  height: number | null
-  weight: number | null
-  features: string | null
-  status: string
-  imageUrl: string | null
-}
-
-export default function EditSuspectForm({ suspect }: { suspect: SuspectData }) {
+export default function EditSuspectPage() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [suspect, setSuspect] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!id) {
+        router.push("/404");
+        return;
+      }
+      try {
+        const docRef = doc(db, "suspects", id);
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) {
+          router.push("/404");
+          return;
+        }
+
+        const data = docSnap.data();
+        setSuspect({
+          id: docSnap.id,
+          ...data,
+          dateOfBirth: data.dateOfBirth ? data.dateOfBirth.toDate().toISOString().split("T")[0] : "",
+        });
+      } catch (error) {
+        console.error("Error fetching suspect details:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [id, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
 
     const formData = new FormData(e.currentTarget);
+    const dateOfBirthStr = formData.get("dateOfBirth") as string;
+
     const data = {
       fullName: formData.get("fullName"),
       aliases: formData.get("aliases") || null,
       idNumber: formData.get("idNumber") || null,
-      dateOfBirth: formData.get("dateOfBirth") || null,
+      dateOfBirth: dateOfBirthStr ? new Date(dateOfBirthStr) : null,
       address: formData.get("address") || null,
       bloodType: formData.get("bloodType") || null,
       height: formData.get("height") ? parseFloat(formData.get("height") as string) : null,
@@ -41,33 +65,32 @@ export default function EditSuspectForm({ suspect }: { suspect: SuspectData }) {
       status: formData.get("status"),
       features: formData.get("features") || null,
       imageUrl: formData.get("imageUrl") || null,
+      updatedAt: new Date(),
     };
 
     try {
-      const res = await fetch(`/api/suspects/${suspect.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (res.ok) {
-        router.push(`/suspects/${suspect.id}`);
-        router.refresh();
-      } else {
-        alert("Lỗi khi cập nhật hồ sơ");
-      }
+      if (!id) return;
+      const docRef = doc(db, "suspects", id);
+      await updateDoc(docRef, data);
+      router.push(`/suspects/detail?id=${id}`);
     } catch (error) {
       console.error(error);
-      alert("Lỗi kết nối");
+      alert("Lỗi kết nối hoặc cập nhật");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
+
+  if (loading) {
+    return <div className="text-white text-center py-10">Đang tải hồ sơ...</div>;
+  }
+
+  if (!suspect) return null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center space-x-4">
-        <Link href={`/suspects/${suspect.id}`} className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors border border-zinc-800">
+        <Link href={`/suspects/detail?id=${suspect.id}`} className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors border border-zinc-800">
           <ArrowLeft size={18} />
         </Link>
         <div>
@@ -141,15 +164,15 @@ export default function EditSuspectForm({ suspect }: { suspect: SuspectData }) {
           </div>
 
           <div className="pt-4 border-t border-zinc-800 flex justify-end space-x-4">
-            <Link href={`/suspects/${suspect.id}`} className="px-6 py-2.5 rounded-lg text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors border border-transparent">
+            <Link href={`/suspects/detail?id=${suspect.id}`} className="px-6 py-2.5 rounded-lg text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors border border-transparent">
               Hủy bỏ
             </Link>
             <button 
               type="submit" 
-              disabled={loading}
+              disabled={saving}
               className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-red-600/20 disabled:opacity-50"
             >
-              {loading ? (
+              {saving ? (
                 <span>Đang xử lý...</span>
               ) : (
                 <>

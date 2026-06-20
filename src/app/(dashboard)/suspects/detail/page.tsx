@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, User, Calendar, MapPin, Edit, FileText, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/components/providers/session-provider";
@@ -9,12 +9,9 @@ import DeleteButton from "./delete-button";
 import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-export default function SuspectProfilePage({
-  params
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const resolvedParams = use(params);
+export default function SuspectProfilePage() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
   const { user } = useAuth();
   // We use user role or just assume ADMIN if needed. Let's assume ADMIN for now to show delete.
   const isAdmin = true; 
@@ -26,8 +23,12 @@ export default function SuspectProfilePage({
 
   useEffect(() => {
     async function fetchData() {
+      if (!id) {
+        router.push("/404");
+        return;
+      }
       try {
-        const docRef = doc(db, "suspects", resolvedParams.id);
+        const docRef = doc(db, "suspects", id);
         const docSnap = await getDoc(docRef);
         
         if (!docSnap.exists()) {
@@ -43,7 +44,7 @@ export default function SuspectProfilePage({
         });
 
         // Fetch related cases
-        const caseSuspectsQuery = query(collection(db, "caseSuspects"), where("suspectId", "==", resolvedParams.id));
+        const caseSuspectsQuery = query(collection(db, "caseSuspects"), where("suspectId", "==", id));
         const csSnapshot = await getDocs(caseSuspectsQuery);
         
         const relatedCases = [];
@@ -73,7 +74,7 @@ export default function SuspectProfilePage({
     }
 
     fetchData();
-  }, [resolvedParams.id, router]);
+  }, [id, router]);
 
   if (loading) {
     return <div className="text-white text-center py-10">Đang tải hồ sơ...</div>;
@@ -97,7 +98,7 @@ export default function SuspectProfilePage({
         </div>
         <div className="flex items-center space-x-3">
           <Link 
-            href={`/suspects/${suspect.id}/edit`}
+            href={`/suspects/edit?id=${suspect.id}`}
             className="flex items-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-zinc-700"
           >
             <Edit size={16} />
@@ -221,7 +222,7 @@ export default function SuspectProfilePage({
                 {cases.map((cs) => (
                   <div key={cs.id} className="p-4 rounded-lg bg-zinc-950 border border-zinc-800">
                     <div className="flex justify-between items-start mb-2">
-                      <Link href={`/cases/${cs.case.id}`} className="font-medium text-red-500 hover:text-red-400 transition-colors">
+                      <Link href={`/cases/detail?id=${cs.case.id}`} className="font-medium text-red-500 hover:text-red-400 transition-colors">
                         {cs.case.title}
                       </Link>
                       <span className="text-xs text-zinc-500 px-2 py-1 bg-zinc-900 rounded">{cs.case.caseNumber}</span>

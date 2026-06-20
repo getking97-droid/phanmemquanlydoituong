@@ -380,7 +380,7 @@ export default function SuspectMap({ locations, totalCount, noAddressCount }: Pr
             </div>
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {selected.suspects.map(s => (
-                <Link href={`/suspects/${s.id}`} key={s.id} onClick={() => setSelected(null)}
+                <Link href={`/suspects/detail?id=${s.id}`} key={s.id} onClick={() => setSelected(null)}
                   className="flex items-center justify-between p-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl border border-zinc-700 transition-colors group">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-white group-hover:text-red-400 transition-colors truncate">{s.fullName}</p>

@@ -144,7 +144,7 @@ function SuspectsList() {
                       {suspect.status === "UNKNOWN" && <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded text-xs font-medium tracking-wide">CHƯA RÕ</span>}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Link href={`/suspects/${suspect.id}`} className="text-zinc-500 hover:text-zinc-300 p-2 inline-flex">
+                      <Link href={`/suspects/detail?id=${suspect.id}`} className="text-zinc-500 hover:text-zinc-300 p-2 inline-flex">
                         <MoreVertical size={18} />
                       </Link>
                     </td>

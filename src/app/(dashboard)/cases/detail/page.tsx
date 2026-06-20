@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Edit, Calendar, MapPin, FolderOpen } from "lucide-react";
 import { useAuth } from "@/components/providers/session-provider";
@@ -10,12 +10,9 @@ import CaseSuspectManager from "./suspect-manager";
 import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-export default function CaseDetailPage({
-  params
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const resolvedParams = use(params);
+export default function CaseDetailPage() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
   const { user } = useAuth();
   const isAdmin = true;
 
@@ -27,8 +24,12 @@ export default function CaseDetailPage({
 
   useEffect(() => {
     async function fetchData() {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
       try {
-        const caseRef = doc(db, "cases", resolvedParams.id);
+        const caseRef = doc(db, "cases", id);
         const caseSnap = await getDoc(caseRef);
 
         if (!caseSnap.exists()) {
@@ -86,7 +87,7 @@ export default function CaseDetailPage({
     }
 
     fetchData();
-  }, [resolvedParams.id, router]);
+  }, [id, router]);
 
   if (loading) {
     return <div className="text-white text-center py-10">Đang tải vụ án...</div>;
@@ -111,7 +112,7 @@ export default function CaseDetailPage({
 
         <div className="flex items-center space-x-3">
           <Link 
-            href={`/cases/${kase.id}/edit`}
+            href={`/cases/edit?id=${kase.id}`}
             className="flex items-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-zinc-700"
           >
             <Edit size={16} />

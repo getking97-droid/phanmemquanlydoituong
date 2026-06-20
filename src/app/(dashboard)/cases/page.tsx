@@ -126,12 +126,12 @@ function CasesList() {
                 cases.map((c) => (
                   <tr key={c.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/50 transition-colors">
                     <td className="px-6 py-4 font-medium">
-                      <Link href={`/cases/${c.id}`} className="text-zinc-300 hover:text-red-500 transition-colors">
+                      <Link href={`/cases/detail?id=${c.id}`} className="text-zinc-300 hover:text-red-500 transition-colors">
                         {c.caseNumber}
                       </Link>
                     </td>
                     <td className="px-6 py-4">
-                      <Link href={`/cases/${c.id}`} className="text-white font-medium hover:text-red-500 transition-colors">
+                      <Link href={`/cases/detail?id=${c.id}`} className="text-white font-medium hover:text-red-500 transition-colors">
                         {c.title}
                       </Link>
                     </td>

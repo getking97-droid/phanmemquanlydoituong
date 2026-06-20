@@ -1,65 +1,91 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, use } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
-interface CaseData {
-  id: string
-  caseNumber: string
-  title: string
-  description: string | null
-  date: string
-  location: string | null
-  status: string
-}
-
-export default function EditCaseForm({ kase }: { kase: CaseData }) {
+export default function EditCasePage() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [kase, setKase] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!id) {
+        router.push("/404");
+        return;
+      }
+      try {
+        const docRef = doc(db, "cases", id);
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) {
+          router.push("/404");
+          return;
+        }
+
+        const data = docSnap.data();
+        setKase({
+          id: docSnap.id,
+          ...data,
+          date: data.date ? data.date.toDate().toISOString().split("T")[0] : "",
+        });
+      } catch (error) {
+        console.error("Error fetching case details:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [id, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
 
     const formData = new FormData(e.currentTarget);
+    const dateStr = formData.get("date") as string;
+
     const data = {
       caseNumber: formData.get("caseNumber"),
       title: formData.get("title"),
-      date: formData.get("date") || null,
+      date: dateStr ? new Date(dateStr) : null,
       location: formData.get("location") || null,
       description: formData.get("description") || null,
       status: formData.get("status"),
+      updatedAt: new Date(),
     };
 
     try {
-      const res = await fetch(`/api/cases/${kase.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (res.ok) {
-        router.push(`/cases/${kase.id}`);
-        router.refresh();
-      } else if (res.status === 409) {
-        alert("Mã vụ án đã tồn tại ở hồ sơ khác");
-      } else {
-        alert("Lỗi khi cập nhật hồ sơ vụ án");
-      }
+      if (!id) return;
+      const docRef = doc(db, "cases", id);
+      await updateDoc(docRef, data);
+      router.push(`/cases/detail?id=${id}`);
     } catch (error) {
       console.error(error);
-      alert("Lỗi kết nối");
+      alert("Lỗi kết nối hoặc cập nhật");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
+
+  if (loading) {
+    return <div className="text-white text-center py-10">Đang tải dữ liệu...</div>;
+  }
+
+  if (!kase) return null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center space-x-4">
-        <Link href={`/cases/${kase.id}`} className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors border border-zinc-800">
+        <Link href={`/cases/detail?id=${kase.id}`} className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors border border-zinc-800">
           <ArrowLeft size={18} />
         </Link>
         <div>
@@ -106,15 +132,15 @@ export default function EditCaseForm({ kase }: { kase: CaseData }) {
           </div>
 
           <div className="pt-4 border-t border-zinc-800 flex justify-end space-x-4">
-            <Link href={`/cases/${kase.id}`} className="px-6 py-2.5 rounded-lg text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors border border-transparent">
+            <Link href={`/cases/detail?id=${kase.id}`} className="px-6 py-2.5 rounded-lg text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors border border-transparent">
               Hủy bỏ
             </Link>
             <button 
               type="submit" 
-              disabled={loading}
+              disabled={saving}
               className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-red-600/20 disabled:opacity-50"
             >
-              {loading ? (
+              {saving ? (
                 <span>Đang xử lý...</span>
               ) : (
                 <>
