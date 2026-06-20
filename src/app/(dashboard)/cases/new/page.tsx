@@ -14,27 +14,37 @@ export default function NewCasePage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const dateStr = formData.get("date") as string;
+    
     const data = {
       caseNumber: formData.get("caseNumber"),
       title: formData.get("title"),
-      date: formData.get("date"),
-      location: formData.get("location"),
-      description: formData.get("description"),
+      date: dateStr ? new Date(dateStr) : null,
+      location: formData.get("location") || null,
+      description: formData.get("description") || null,
       status: formData.get("status"),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     try {
-      const res = await fetch("/api/cases", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (res.ok) {
-        router.push("/cases");
-        router.refresh();
-      } else if (res.status === 409) {
+      const { collection, addDoc, query, where, getDocs } = await import("firebase/firestore");
+      const { db } = await import("@/lib/firebase");
+      
+      // Check for duplicate caseNumber
+      const q = query(collection(db, "cases"), where("caseNumber", "==", data.caseNumber));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
         alert("Mã vụ án đã tồn tại trong hệ thống");
+        setLoading(false);
+        return;
+      }
+      
+      const docRef = await addDoc(collection(db, "cases"), data);
+      
+      if (docRef.id) {
+        router.push("/cases");
       } else {
         alert("Lỗi khi tạo vụ án mới");
       }

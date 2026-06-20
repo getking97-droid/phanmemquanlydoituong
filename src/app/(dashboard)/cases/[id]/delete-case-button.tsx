@@ -20,18 +20,13 @@ export default function DeleteCaseButton({ caseId, caseNumber, caseTitle }: Dele
 
     setLoading(true)
     try {
-      const res = await fetch(`/api/cases/${caseId}`, {
-        method: "DELETE"
-      })
-
-      if (res.ok) {
-        alert("Đã xóa hồ sơ vụ án thành công")
-        router.push("/cases")
-        router.refresh()
-      } else {
-        const text = await res.text()
-        alert(`Lỗi khi xóa vụ án: ${text || res.statusText}`)
-      }
+      const { deleteDoc, doc } = await import("firebase/firestore");
+      const { db } = await import("@/lib/firebase");
+      
+      await deleteDoc(doc(db, "cases", caseId));
+      
+      alert("Đã xóa hồ sơ vụ án thành công")
+      router.push("/cases")
     } catch (error) {
       console.error(error)
       alert("Lỗi kết nối khi thực hiện xóa")

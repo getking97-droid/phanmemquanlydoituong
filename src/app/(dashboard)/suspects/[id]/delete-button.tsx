@@ -19,18 +19,13 @@ export default function DeleteButton({ suspectId, suspectName }: DeleteButtonPro
 
     setLoading(true)
     try {
-      const res = await fetch(`/api/suspects/${suspectId}`, {
-        method: "DELETE"
-      })
-
-      if (res.ok) {
-        alert("Đã xóa hồ sơ thành công")
-        router.push("/suspects")
-        router.refresh()
-      } else {
-        const text = await res.text()
-        alert(`Lỗi khi xóa hồ sơ: ${text || res.statusText}`)
-      }
+      const { deleteDoc, doc } = await import("firebase/firestore");
+      const { db } = await import("@/lib/firebase");
+      
+      await deleteDoc(doc(db, "suspects", suspectId));
+      
+      alert("Đã xóa hồ sơ thành công")
+      router.push("/suspects")
     } catch (error) {
       console.error(error)
       alert("Lỗi kết nối khi thực hiện xóa")

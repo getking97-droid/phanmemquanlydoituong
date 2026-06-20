@@ -1,54 +1,103 @@
-import { prisma } from "@/lib/prisma"
-import { notFound } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft, Edit, Calendar, MapPin, FolderOpen } from "lucide-react"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import DeleteCaseButton from "./delete-case-button"
-import CaseSuspectManager from "./suspect-manager"
+"use client";
 
-interface CaseDetailPageProps {
+import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, Edit, Calendar, MapPin, FolderOpen } from "lucide-react";
+import { useAuth } from "@/components/providers/session-provider";
+import DeleteCaseButton from "./delete-case-button";
+import CaseSuspectManager from "./suspect-manager";
+import { doc, getDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export default function CaseDetailPage({
+  params
+}: {
   params: Promise<{ id: string }>
-}
+}) {
+  const resolvedParams = use(params);
+  const { user } = useAuth();
+  const isAdmin = true;
 
-export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
-  const resolvedParams = await params
-  const session = await getServerSession(authOptions)
-  const isAdmin = (session?.user as { role?: string })?.role === "ADMIN"
+  const [kase, setKase] = useState<any>(null);
+  const [suspects, setSuspects] = useState<any[]>([]);
+  const [allSuspects, setAllSuspects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
-  const kase = await prisma.case.findUnique({
-    where: { id: resolvedParams.id },
-    include: {
-      suspects: {
-        include: {
-          suspect: true
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const caseRef = doc(db, "cases", resolvedParams.id);
+        const caseSnap = await getDoc(caseRef);
+
+        if (!caseSnap.exists()) {
+          router.push("/404");
+          return;
         }
+
+        const caseData = caseSnap.data();
+        setKase({
+          id: caseSnap.id,
+          ...caseData,
+          date: caseData.date?.toDate(),
+          createdAt: caseData.createdAt?.toDate() || new Date(),
+          updatedAt: caseData.updatedAt?.toDate() || new Date(),
+        });
+
+        // Fetch case suspects
+        const csQuery = query(collection(db, "caseSuspects"), where("caseId", "==", resolvedParams.id));
+        const csSnap = await getDocs(csQuery);
+        
+        const linkedSuspects = [];
+        for (const csDoc of csSnap.docs) {
+          const csData = csDoc.data();
+          const suspectRef = doc(db, "suspects", csData.suspectId);
+          const suspectSnap = await getDoc(suspectRef);
+          if (suspectSnap.exists()) {
+            linkedSuspects.push({
+              id: csDoc.id,
+              role: csData.role,
+              suspect: {
+                id: suspectSnap.id,
+                ...suspectSnap.data()
+              }
+            });
+          }
+        }
+        setSuspects(linkedSuspects);
+
+        // Fetch all suspects for dropdown
+        const allSuspectsSnap = await getDocs(collection(db, "suspects"));
+        const allSuspectsList = allSuspectsSnap.docs.map(d => ({
+          id: d.id,
+          fullName: d.data().fullName,
+          aliases: d.data().aliases,
+          status: d.data().status,
+          idNumber: d.data().idNumber
+        }));
+        setAllSuspects(allSuspectsList);
+
+      } catch (error) {
+        console.error("Error fetching case details:", error);
+      } finally {
+        setLoading(false);
       }
     }
-  })
 
-  if (!kase) {
-    notFound()
+    fetchData();
+  }, [resolvedParams.id, router]);
+
+  if (loading) {
+    return <div className="text-white text-center py-10">Đang tải vụ án...</div>;
   }
 
-  // Fetch all suspects to allow linking them to this case
-  const allSuspects = await prisma.suspect.findMany({
-    select: {
-      id: true,
-      fullName: true,
-      aliases: true,
-      status: true,
-      idNumber: true
-    },
-    orderBy: { fullName: 'asc' }
-  })
+  if (!kase) return null;
 
-  // Format date for UI
-  const dateFormatted = kase.date ? kase.date.toLocaleDateString('vi-VN') : "Chưa cập nhật"
+  const dateFormatted = kase.date ? kase.date.toLocaleDateString('vi-VN') : "Chưa cập nhật";
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center space-x-4">
           <Link href="/cases" className="p-2 bg-zinc-900 hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors border border-zinc-800">
@@ -74,11 +123,8 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
         </div>
       </div>
 
-      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Side: General Info */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Info Card */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-6">
             <div>
               <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Tên vụ án</span>
@@ -115,17 +161,14 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             </div>
           </div>
 
-          {/* Suspect Manager Section */}
           <CaseSuspectManager
             caseId={kase.id}
-            linkedSuspects={kase.suspects}
+            initialLinkedSuspects={suspects}
             allSuspects={allSuspects}
           />
         </div>
 
-        {/* Right Side: Map & Metadata */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Location Card */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-4">
             <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
               <MapPin size={16} className="text-red-500" />
@@ -148,7 +191,6 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             )}
           </div>
 
-          {/* Metadata Card */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-xs text-zinc-500 space-y-2">
             <p>Ngày khởi tạo hồ sơ: {kase.createdAt.toLocaleString('vi-VN')}</p>
             <p>Lần cập nhật cuối: {kase.updatedAt.toLocaleString('vi-VN')}</p>

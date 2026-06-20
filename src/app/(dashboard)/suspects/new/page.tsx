@@ -14,26 +14,28 @@ export default function NewSuspectPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const dateOfBirthStr = formData.get("dateOfBirth") as string;
+    
     const data = {
       fullName: formData.get("fullName"),
-      aliases: formData.get("aliases"),
-      idNumber: formData.get("idNumber"),
-      dateOfBirth: formData.get("dateOfBirth"),
-      address: formData.get("address"),
+      aliases: formData.get("aliases") || null,
+      idNumber: formData.get("idNumber") || null,
+      dateOfBirth: dateOfBirthStr ? new Date(dateOfBirthStr) : null,
+      address: formData.get("address") || null,
       status: formData.get("status"),
-      features: formData.get("features"),
+      features: formData.get("features") || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
 
     try {
-      const res = await fetch("/api/suspects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      if (res.ok) {
+      const { collection, addDoc } = await import("firebase/firestore");
+      const { db } = await import("@/lib/firebase");
+      
+      const docRef = await addDoc(collection(db, "suspects"), data);
+      
+      if (docRef.id) {
         router.push("/suspects");
-        router.refresh();
       } else {
         alert("Lỗi khi thêm hồ sơ");
       }

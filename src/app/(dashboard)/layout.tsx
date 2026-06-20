@@ -1,20 +1,29 @@
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import { redirect } from "next/navigation"
-import Link from "next/link"
-import { Users, FolderOpen, PieChart, Search } from "lucide-react"
-import { LogoutButton } from "./logout-button"
-import PoliceLogo from "@/components/ui/police-logo"
+"use client";
 
-export default async function DashboardLayout({
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Users, FolderOpen, PieChart, Search } from "lucide-react";
+import { LogoutButton } from "./logout-button";
+import PoliceLogo from "@/components/ui/police-logo";
+import { useAuth } from "@/components/providers/session-provider";
+
+export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions)
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (!session) {
-    redirect("/login")
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">Loading...</div>;
   }
 
   return (
@@ -29,11 +38,11 @@ export default async function DashboardLayout({
         <div className="p-4 border-b border-zinc-800">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-red-500">
-              {session.user?.name?.charAt(0) || "U"}
+              {user.email?.charAt(0).toUpperCase() || "U"}
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-medium">{session.user?.name}</span>
-              <span className="text-xs text-zinc-500">{(session.user as { role?: string })?.role}</span>
+              <span className="text-sm font-medium">{user.email?.split("@")[0]}</span>
+              <span className="text-xs text-zinc-500">VIEWER</span>
             </div>
           </div>
         </div>
@@ -82,5 +91,5 @@ export default async function DashboardLayout({
         </div>
       </main>
     </div>
-  )
+  );
 }

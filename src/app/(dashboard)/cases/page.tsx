@@ -1,27 +1,71 @@
-import { prisma } from "@/lib/prisma"
-import Link from "next/link"
-import { Search, Plus, FolderOpen } from "lucide-react"
+"use client";
 
-export default async function CasesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
-  const resolvedParams = await searchParams
-  const q = typeof resolvedParams.q === 'string' ? resolvedParams.q : ""
+import { useEffect, useState, Suspense } from "react";
+import Link from "next/link";
+import { Search, Plus, FolderOpen } from "lucide-react";
+import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useSearchParams } from "next/navigation";
 
-  const cases = await prisma.case.findMany({
-    where: q ? {
-      OR: [
-        { title: { contains: q } },
-        { caseNumber: { contains: q } },
-      ]
-    } : {},
-    orderBy: { createdAt: 'desc' },
-    include: {
-      suspects: true
+export interface CaseData {
+  id: string;
+  title: string;
+  caseNumber: string;
+  date?: Date;
+  status: string;
+  suspectsCount: number;
+}
+
+function CasesList() {
+  const [cases, setCases] = useState<CaseData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const q = searchParams.get("q") || "";
+
+  useEffect(() => {
+    async function fetchCases() {
+      setLoading(true);
+      try {
+        const casesRef = collection(db, "cases");
+        const qSnapshot = await getDocs(query(casesRef, orderBy("createdAt", "desc")));
+        
+        let fetchedCases: CaseData[] = [];
+        for (const doc of qSnapshot.docs) {
+          const data = doc.data();
+          
+          // Get suspect count for this case
+          const csQuery = query(collection(db, "caseSuspects"), where("caseId", "==", doc.id));
+          const csSnap = await getDocs(csQuery);
+
+          fetchedCases.push({
+            id: doc.id,
+            title: data.title,
+            caseNumber: data.caseNumber,
+            date: data.date?.toDate(),
+            status: data.status,
+            suspectsCount: csSnap.size
+          });
+        }
+
+        // Filter
+        if (q) {
+          const lowerQ = q.toLowerCase();
+          fetchedCases = fetchedCases.filter(c => 
+            c.title.toLowerCase().includes(lowerQ) || 
+            c.caseNumber.toLowerCase().includes(lowerQ)
+          );
+        }
+
+        setCases(fetchedCases);
+      } catch (error) {
+        console.error("Error fetching cases:", error);
+      } finally {
+        setLoading(false);
+      }
     }
-  })
+
+    fetchCases();
+  }, [q]);
 
   return (
     <div className="space-y-6">
@@ -65,7 +109,13 @@ export default async function CasesPage({
               </tr>
             </thead>
             <tbody>
-              {cases.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-zinc-500">
+                    Đang tải dữ liệu...
+                  </td>
+                </tr>
+              ) : cases.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-zinc-500">
                     <FolderOpen size={32} className="mx-auto mb-2 opacity-50 text-zinc-600" />
@@ -89,7 +139,7 @@ export default async function CasesPage({
                       {c.date ? c.date.toLocaleDateString('vi-VN') : "Không rõ"}
                     </td>
                     <td className="px-6 py-4">
-                      {c.suspects.length}
+                      {c.suspectsCount}
                     </td>
                     <td className="px-6 py-4">
                       {c.status === "OPEN" && <span className="px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded text-xs font-medium tracking-wide">ĐANG ĐIỀU TRA</span>}
@@ -104,5 +154,13 @@ export default async function CasesPage({
         </div>
       </div>
     </div>
-  )
+  );
+}
+
+export default function CasesPage() {
+  return (
+    <Suspense fallback={<div className="text-white">Loading...</div>}>
+      <CasesList />
+    </Suspense>
+  );
 }

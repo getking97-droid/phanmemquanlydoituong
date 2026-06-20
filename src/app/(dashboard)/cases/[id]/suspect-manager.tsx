@@ -4,6 +4,8 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { User, Plus, UserMinus } from "lucide-react"
 import Link from "next/link"
+import { collection, addDoc, deleteDoc, doc, query, where, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 interface SuspectInfo {
   id: string
@@ -15,14 +17,14 @@ interface SuspectInfo {
 
 interface CaseSuspectLink {
   id: string
-  suspectId: string
+  suspectId?: string
   role: string | null
   suspect: SuspectInfo
 }
 
 interface SuspectManagerProps {
   caseId: string
-  linkedSuspects: CaseSuspectLink[]
+  initialLinkedSuspects: CaseSuspectLink[]
   allSuspects: SuspectInfo[]
 }
 
@@ -38,14 +40,15 @@ const ROLE_CLS: Record<string, string> = {
   WITNESS: "text-blue-400 bg-blue-500/10 border-blue-500/30",
 }
 
-export default function CaseSuspectManager({ caseId, linkedSuspects, allSuspects }: SuspectManagerProps) {
+export default function CaseSuspectManager({ caseId, initialLinkedSuspects, allSuspects }: SuspectManagerProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [selectedSuspectId, setSelectedSuspectId] = useState("")
   const [selectedRole, setSelectedRole] = useState("MAIN_SUSPECT")
+  const [linkedSuspects, setLinkedSuspects] = useState(initialLinkedSuspects)
 
   // Filter out suspects that are already linked to the case
-  const linkedIds = new Set(linkedSuspects.map(l => l.suspectId))
+  const linkedIds = new Set(linkedSuspects.map(l => l.suspect?.id))
   const unlinkedSuspects = allSuspects.filter(s => !linkedIds.has(s.id))
 
   const handleLink = async (e: React.FormEvent) => {
@@ -54,21 +57,22 @@ export default function CaseSuspectManager({ caseId, linkedSuspects, allSuspects
 
     setLoading(true)
     try {
-      const res = await fetch(`/api/cases/${caseId}/suspects`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          suspectId: selectedSuspectId,
-          role: selectedRole
-        })
+      const docRef = await addDoc(collection(db, "caseSuspects"), {
+        caseId,
+        suspectId: selectedSuspectId,
+        role: selectedRole,
+        createdAt: new Date()
       })
 
-      if (res.ok) {
-        setSelectedSuspectId("")
-        router.refresh()
-      } else {
-        alert("Lỗi khi thêm đối tượng vào vụ án")
-      }
+      const suspect = allSuspects.find(s => s.id === selectedSuspectId)!
+
+      setLinkedSuspects(prev => [...prev, {
+        id: docRef.id,
+        suspectId: selectedSuspectId,
+        role: selectedRole,
+        suspect
+      }])
+      setSelectedSuspectId("")
     } catch (error) {
       console.error(error)
       alert("Lỗi kết nối")
@@ -77,21 +81,14 @@ export default function CaseSuspectManager({ caseId, linkedSuspects, allSuspects
     }
   }
 
-  const handleUnlink = async (suspectId: string, suspectName: string) => {
+  const handleUnlink = async (linkId: string, suspectName: string) => {
     const confirmed = confirm(`Bạn có muốn gỡ bỏ đối tượng "${suspectName}" khỏi vụ án này không?`)
     if (!confirmed) return
 
     setLoading(true)
     try {
-      const res = await fetch(`/api/cases/${caseId}/suspects?suspectId=${suspectId}`, {
-        method: "DELETE"
-      })
-
-      if (res.ok) {
-        router.refresh()
-      } else {
-        alert("Lỗi khi gỡ đối tượng khỏi vụ án")
-      }
+      await deleteDoc(doc(db, "caseSuspects", linkId))
+      setLinkedSuspects(prev => prev.filter(l => l.id !== linkId))
     } catch (error) {
       console.error(error)
       alert("Lỗi kết nối")
@@ -190,7 +187,7 @@ export default function CaseSuspectManager({ caseId, linkedSuspects, allSuspects
                   </span>
                   
                   <button
-                    onClick={() => handleUnlink(link.suspectId, link.suspect.fullName)}
+                    onClick={() => handleUnlink(link.id, link.suspect.fullName)}
                     disabled={loading}
                     className="p-1.5 hover:bg-red-500/10 text-zinc-500 hover:text-red-500 rounded border border-transparent hover:border-red-500/20 transition-colors"
                     title="Gỡ khỏi vụ án"

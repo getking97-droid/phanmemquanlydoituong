@@ -1,32 +1,72 @@
-import { prisma } from "@/lib/prisma"
-import Link from "next/link"
-import { Plus, User, MoreVertical } from "lucide-react"
-import SuspectsFilter from "@/components/suspects-filter"
+"use client";
 
-export default async function SuspectsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
-  const resolvedParams = await searchParams
-  const q = typeof resolvedParams.q === 'string' ? resolvedParams.q : ""
-  const statusFilter = typeof resolvedParams.status === 'string' ? resolvedParams.status : ""
+import { useEffect, useState, Suspense } from "react";
+import Link from "next/link";
+import { Plus, User, MoreVertical } from "lucide-react";
+import SuspectsFilter from "@/components/suspects-filter";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useSearchParams } from "next/navigation";
 
-  const suspects = await prisma.suspect.findMany({
-    where: {
-      AND: [
-        q ? {
-          OR: [
-            { fullName: { contains: q } },
-            { idNumber: { contains: q } },
-            { aliases: { contains: q } }
-          ]
-        } : {},
-        statusFilter ? { status: statusFilter } : {}
-      ]
-    },
-    orderBy: { createdAt: 'desc' }
-  })
+// Define a type for Suspect
+export interface Suspect {
+  id: string;
+  fullName: string;
+  aliases?: string;
+  idNumber?: string;
+  dateOfBirth?: Date;
+  status: string;
+  imageUrl?: string;
+}
+
+function SuspectsList() {
+  const [suspects, setSuspects] = useState<Suspect[]>([]);
+  const [loading, setLoading] = useState(true);
+  const searchParams = useSearchParams();
+  const q = searchParams.get("q") || "";
+  const statusFilter = searchParams.get("status") || "";
+
+  useEffect(() => {
+    async function fetchSuspects() {
+      setLoading(true);
+      try {
+        const suspectsRef = collection(db, "suspects");
+        const qSnapshot = await getDocs(query(suspectsRef, orderBy("createdAt", "desc")));
+        let fetchedSuspects: Suspect[] = [];
+        
+        qSnapshot.forEach((doc) => {
+          const data = doc.data();
+          fetchedSuspects.push({
+            id: doc.id,
+            ...data,
+            dateOfBirth: data.dateOfBirth?.toDate(),
+          } as Suspect);
+        });
+
+        // Filter on the client side
+        if (q) {
+          const lowerQ = q.toLowerCase();
+          fetchedSuspects = fetchedSuspects.filter(s => 
+            s.fullName.toLowerCase().includes(lowerQ) || 
+            (s.idNumber && s.idNumber.toLowerCase().includes(lowerQ)) ||
+            (s.aliases && s.aliases.toLowerCase().includes(lowerQ))
+          );
+        }
+
+        if (statusFilter) {
+          fetchedSuspects = fetchedSuspects.filter(s => s.status === statusFilter);
+        }
+
+        setSuspects(fetchedSuspects);
+      } catch (error) {
+        console.error("Error fetching suspects:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchSuspects();
+  }, [q, statusFilter]);
 
   return (
     <div className="space-y-6">
@@ -61,7 +101,13 @@ export default async function SuspectsPage({
               </tr>
             </thead>
             <tbody>
-              {suspects.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-zinc-500">
+                    Đang tải dữ liệu...
+                  </td>
+                </tr>
+              ) : suspects.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-zinc-500">
                     Không tìm thấy đối tượng nào.
@@ -74,7 +120,6 @@ export default async function SuspectsPage({
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center overflow-hidden border border-zinc-700">
                           {suspect.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={suspect.imageUrl} alt={suspect.fullName} className="w-full h-full object-cover" />
                           ) : (
                             <User size={18} className="text-zinc-500" />
@@ -110,7 +155,6 @@ export default async function SuspectsPage({
           </table>
         </div>
         
-        {/* Pagination Dummy */}
         <div className="p-4 border-t border-zinc-800 flex items-center justify-between text-sm text-zinc-500 bg-zinc-950/30">
           <div>Hiển thị <span className="font-medium text-zinc-300">{suspects.length}</span> kết quả</div>
           <div className="flex space-x-1">
@@ -120,5 +164,13 @@ export default async function SuspectsPage({
         </div>
       </div>
     </div>
-  )
+  );
+}
+
+export default function SuspectsPage() {
+  return (
+    <Suspense fallback={<div className="text-white">Loading...</div>}>
+      <SuspectsList />
+    </Suspense>
+  );
 }

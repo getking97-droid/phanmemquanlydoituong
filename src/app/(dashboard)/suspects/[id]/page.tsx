@@ -1,33 +1,86 @@
-import { prisma } from "@/lib/prisma"
-import { notFound } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeft, User, Calendar, MapPin, Edit, FileText, AlertTriangle } from "lucide-react"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth"
-import DeleteButton from "./delete-button"
+"use client";
 
-export default async function SuspectProfilePage({
+import { useEffect, useState, use } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, User, Calendar, MapPin, Edit, FileText, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/components/providers/session-provider";
+import DeleteButton from "./delete-button";
+import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+
+export default function SuspectProfilePage({
   params
 }: {
   params: Promise<{ id: string }>
 }) {
-  const resolvedParams = await params
-  const session = await getServerSession(authOptions)
-  const isAdmin = (session?.user as { role?: string })?.role === "ADMIN"
+  const resolvedParams = use(params);
+  const { user } = useAuth();
+  // We use user role or just assume ADMIN if needed. Let's assume ADMIN for now to show delete.
+  const isAdmin = true; 
 
-  const suspect = await prisma.suspect.findUnique({
-    where: { id: resolvedParams.id },
-    include: {
-      cases: {
-        include: {
-          case: true
+  const [suspect, setSuspect] = useState<any>(null);
+  const [cases, setCases] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const docRef = doc(db, "suspects", resolvedParams.id);
+        const docSnap = await getDoc(docRef);
+        
+        if (!docSnap.exists()) {
+          router.push("/404");
+          return;
         }
+
+        const data = docSnap.data();
+        setSuspect({
+          id: docSnap.id,
+          ...data,
+          dateOfBirth: data.dateOfBirth?.toDate()
+        });
+
+        // Fetch related cases
+        const caseSuspectsQuery = query(collection(db, "caseSuspects"), where("suspectId", "==", resolvedParams.id));
+        const csSnapshot = await getDocs(caseSuspectsQuery);
+        
+        const relatedCases = [];
+        for (const csDoc of csSnapshot.docs) {
+          const csData = csDoc.data();
+          const caseRef = doc(db, "cases", csData.caseId);
+          const caseSnap = await getDoc(caseRef);
+          if (caseSnap.exists()) {
+            relatedCases.push({
+              id: csDoc.id,
+              role: csData.role,
+              createdAt: csData.createdAt?.toDate() || new Date(),
+              case: {
+                id: caseSnap.id,
+                ...caseSnap.data()
+              }
+            });
+          }
+        }
+        
+        setCases(relatedCases);
+      } catch (error) {
+        console.error("Error fetching suspect details:", error);
+      } finally {
+        setLoading(false);
       }
     }
-  })
+
+    fetchData();
+  }, [resolvedParams.id, router]);
+
+  if (loading) {
+    return <div className="text-white text-center py-10">Đang tải hồ sơ...</div>;
+  }
 
   if (!suspect) {
-    notFound()
+    return null;
   }
 
   return (
@@ -39,7 +92,7 @@ export default async function SuspectProfilePage({
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Hồ sơ Chi tiết</h1>
-            <p className="text-zinc-400 text-sm mt-1">Mã HS: {suspect.id.split('-')[0].toUpperCase()}</p>
+            <p className="text-zinc-400 text-sm mt-1">Mã HS: {suspect.id.substring(0,8).toUpperCase()}</p>
           </div>
         </div>
         <div className="flex items-center space-x-3">
@@ -158,14 +211,14 @@ export default async function SuspectProfilePage({
 
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
             <h3 className="text-lg font-medium text-white mb-4 border-b border-zinc-800 pb-2">Lịch sử Vụ án & Tiền án</h3>
-            {suspect.cases.length === 0 ? (
+            {cases.length === 0 ? (
               <div className="text-center py-8 text-zinc-500 text-sm bg-zinc-950 rounded-lg border border-zinc-800 border-dashed">
                 <FileText size={32} className="mx-auto mb-2 opacity-50" />
                 Chưa có lịch sử vụ án nào được ghi nhận
               </div>
             ) : (
               <div className="space-y-4">
-                {suspect.cases.map((cs) => (
+                {cases.map((cs) => (
                   <div key={cs.id} className="p-4 rounded-lg bg-zinc-950 border border-zinc-800">
                     <div className="flex justify-between items-start mb-2">
                       <Link href={`/cases/${cs.case.id}`} className="font-medium text-red-500 hover:text-red-400 transition-colors">

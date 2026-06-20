@@ -1,8 +1,9 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import PoliceLogo from "@/components/ui/police-logo";
 
 export default function LoginPage() {
@@ -15,17 +16,12 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
-    if (res?.error) {
-      setError("Thông tin đăng nhập không chính xác");
-    } else {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
       router.push("/");
-      router.refresh();
+    } catch (err: any) {
+      console.error(err);
+      setError("Thông tin đăng nhập không chính xác");
     }
   };
 
