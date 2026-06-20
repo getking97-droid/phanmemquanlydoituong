@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { Search as SearchIcon, User, AlertTriangle, FileText, ArrowRight, MapPin } from "lucide-react"
 import { redirect } from "next/navigation"
+import { Suspect, Case } from "@prisma/client"
 
 export default async function SearchPage({
   searchParams
@@ -11,8 +12,8 @@ export default async function SearchPage({
   const resolvedParams = await searchParams
   const query = resolvedParams.q || ""
 
-  let suspects: any[] = []
-  let cases: any[] = []
+  let suspects: Suspect[] = []
+  let cases: Case[] = []
 
   if (query) {
     suspects = await prisma.suspect.findMany({
@@ -85,7 +86,7 @@ export default async function SearchPage({
       {query && (
         <div className="space-y-6">
           <h2 className="text-lg font-medium text-white border-b border-zinc-800 pb-2">
-            Kết quả tìm kiếm cho: <span className="text-red-500">"{query}"</span>
+            Kết quả tìm kiếm cho: <span className="text-red-500">&quot;{query}&quot;</span>
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -104,6 +105,7 @@ export default async function SearchPage({
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden relative">
                           {suspect.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={suspect.imageUrl} alt={suspect.fullName} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-zinc-500"><User size={20} /></div>

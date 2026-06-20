@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Shield, Users, FolderOpen, PieChart, LogOut, Search } from "lucide-react"
+import { Users, FolderOpen, PieChart, Search } from "lucide-react"
 import { LogoutButton } from "./logout-button"
 import PoliceLogo from "@/components/ui/police-logo"
 
@@ -33,7 +33,7 @@ export default async function DashboardLayout({
             </div>
             <div className="flex flex-col">
               <span className="text-sm font-medium">{session.user?.name}</span>
-              <span className="text-xs text-zinc-500">{(session.user as any)?.role}</span>
+              <span className="text-xs text-zinc-500">{(session.user as { role?: string })?.role}</span>
             </div>
           </div>
         </div>

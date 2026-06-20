@@ -12,27 +12,28 @@ export async function GET(
       return new Response("Unauthorized", { status: 401 })
     }
 
-    const suspect = await prisma.suspect.findUnique({
-      where: { id: params.id },
+    const resolvedParams = await params
+    const kase = await prisma.case.findUnique({
+      where: { id: resolvedParams.id },
       include: {
-        cases: {
+        suspects: {
           include: {
-            case: true
+            suspect: true
           }
         }
       }
     })
 
-    if (!suspect) {
+    if (!kase) {
       return new Response("Not Found", { status: 404 })
     }
 
-    return new Response(JSON.stringify(suspect), {
+    return new Response(JSON.stringify(kase), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     })
   } catch (error) {
-    console.error("Failed to fetch suspect:", error)
+    console.error("Failed to fetch case details:", error)
     return new Response("Internal Server Error", { status: 500 })
   }
 }
@@ -47,31 +48,40 @@ export async function PUT(
       return new Response("Unauthorized", { status: 401 })
     }
 
+    const resolvedParams = await params
     const data = await request.json()
 
-    const suspect = await prisma.suspect.update({
-      where: { id: params.id },
+    // Validate unique caseNumber if it changed
+    if (data.caseNumber) {
+      const existing = await prisma.case.findFirst({
+        where: {
+          caseNumber: data.caseNumber,
+          NOT: { id: resolvedParams.id }
+        }
+      })
+      if (existing) {
+        return new Response("Case number already in use", { status: 409 })
+      }
+    }
+
+    const updatedCase = await prisma.case.update({
+      where: { id: resolvedParams.id },
       data: {
-        fullName: data.fullName,
-        aliases: data.aliases,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-        idNumber: data.idNumber,
-        address: data.address,
-        bloodType: data.bloodType,
-        height: data.height ? parseFloat(data.height) : null,
-        weight: data.weight ? parseFloat(data.weight) : null,
-        features: data.features,
-        status: data.status,
-        imageUrl: data.imageUrl
+        caseNumber: data.caseNumber,
+        title: data.title,
+        description: data.description,
+        date: data.date ? new Date(data.date) : null,
+        location: data.location,
+        status: data.status
       }
     })
 
-    return new Response(JSON.stringify(suspect), {
+    return new Response(JSON.stringify(updatedCase), {
       status: 200,
       headers: { "Content-Type": "application/json" }
     })
   } catch (error) {
-    console.error("Failed to update suspect:", error)
+    console.error("Failed to update case:", error)
     return new Response("Internal Server Error", { status: 500 })
   }
 }
@@ -86,17 +96,21 @@ export async function DELETE(
       return new Response("Unauthorized or Forbidden", { status: 403 })
     }
 
+    const resolvedParams = await params
+
+    // Delete relationships first
     await prisma.caseSuspect.deleteMany({
-      where: { suspectId: params.id }
+      where: { caseId: resolvedParams.id }
     })
 
-    await prisma.suspect.delete({
-      where: { id: params.id }
+    // Delete case
+    await prisma.case.delete({
+      where: { id: resolvedParams.id }
     })
 
     return new Response(null, { status: 204 })
   } catch (error) {
-    console.error("Failed to delete suspect:", error)
+    console.error("Failed to delete case:", error)
     return new Response("Internal Server Error", { status: 500 })
   }
 }

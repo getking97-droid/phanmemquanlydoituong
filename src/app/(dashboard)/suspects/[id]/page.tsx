@@ -2,6 +2,9 @@ import { prisma } from "@/lib/prisma"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, User, Calendar, MapPin, Edit, FileText, AlertTriangle } from "lucide-react"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import DeleteButton from "./delete-button"
 
 export default async function SuspectProfilePage({
   params
@@ -9,6 +12,9 @@ export default async function SuspectProfilePage({
   params: Promise<{ id: string }>
 }) {
   const resolvedParams = await params
+  const session = await getServerSession(authOptions)
+  const isAdmin = (session?.user as { role?: string })?.role === "ADMIN"
+
   const suspect = await prisma.suspect.findUnique({
     where: { id: resolvedParams.id },
     include: {
@@ -36,10 +42,18 @@ export default async function SuspectProfilePage({
             <p className="text-zinc-400 text-sm mt-1">Mã HS: {suspect.id.split('-')[0].toUpperCase()}</p>
           </div>
         </div>
-        <button className="flex items-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-zinc-700">
-          <Edit size={16} />
-          <span>Chỉnh sửa</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <Link 
+            href={`/suspects/${suspect.id}/edit`}
+            className="flex items-center space-x-2 bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-zinc-700"
+          >
+            <Edit size={16} />
+            <span>Chỉnh sửa</span>
+          </Link>
+          {isAdmin && (
+            <DeleteButton suspectId={suspect.id} suspectName={suspect.fullName} />
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -48,6 +62,7 @@ export default async function SuspectProfilePage({
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden p-6 text-center">
             <div className="w-32 h-32 mx-auto bg-zinc-800 rounded-full mb-4 border-4 border-zinc-800 overflow-hidden relative">
               {suspect.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={suspect.imageUrl} alt={suspect.fullName} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-zinc-500">

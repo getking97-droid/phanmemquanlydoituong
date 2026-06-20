@@ -30,10 +30,13 @@ export default async function CasesPage({
           <h1 className="text-2xl font-bold text-white tracking-tight">Hồ sơ Vụ án</h1>
           <p className="text-zinc-400 text-sm mt-1">Quản lý và theo dõi tiến trình các vụ án.</p>
         </div>
-        <button className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-red-600/20">
+        <Link
+          href="/cases/new"
+          className="flex items-center space-x-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-red-600/20"
+        >
           <Plus size={16} />
           <span>Tạo Vụ án Mới</span>
-        </button>
+        </Link>
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-sm">
@@ -71,12 +74,16 @@ export default async function CasesPage({
                 </tr>
               ) : (
                 cases.map((c) => (
-                  <tr key={c.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/50 transition-colors cursor-pointer">
-                    <td className="px-6 py-4 font-medium text-zinc-300">
-                      {c.caseNumber}
+                  <tr key={c.id} className="border-b border-zinc-800/50 hover:bg-zinc-800/50 transition-colors">
+                    <td className="px-6 py-4 font-medium">
+                      <Link href={`/cases/${c.id}`} className="text-zinc-300 hover:text-red-500 transition-colors">
+                        {c.caseNumber}
+                      </Link>
                     </td>
-                    <td className="px-6 py-4 text-white">
-                      {c.title}
+                    <td className="px-6 py-4">
+                      <Link href={`/cases/${c.id}`} className="text-white font-medium hover:text-red-500 transition-colors">
+                        {c.title}
+                      </Link>
                     </td>
                     <td className="px-6 py-4">
                       {c.date ? c.date.toLocaleDateString('vi-VN') : "Không rõ"}
@@ -85,9 +92,9 @@ export default async function CasesPage({
                       {c.suspects.length}
                     </td>
                     <td className="px-6 py-4">
-                      {c.status === "OPEN" && <span className="text-red-500">Đang điều tra</span>}
-                      {c.status === "CLOSED" && <span className="text-zinc-500">Đã khép hồ sơ</span>}
-                      {c.status === "COLD" && <span className="text-blue-500">Án treo</span>}
+                      {c.status === "OPEN" && <span className="px-2 py-0.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded text-xs font-medium tracking-wide">ĐANG ĐIỀU TRA</span>}
+                      {c.status === "CLOSED" && <span className="px-2 py-0.5 bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 rounded text-xs font-medium tracking-wide">ĐÃ KHÉP HỒ SƠ</span>}
+                      {c.status === "COLD" && <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded text-xs font-medium tracking-wide">ÁN TREO</span>}
                     </td>
                   </tr>
                 ))

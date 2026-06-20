@@ -3,7 +3,6 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldAlert } from "lucide-react";
 import PoliceLogo from "@/components/ui/police-logo";
 
 export default function LoginPage() {

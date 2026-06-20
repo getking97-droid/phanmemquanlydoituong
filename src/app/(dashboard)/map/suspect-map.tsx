@@ -106,6 +106,7 @@ function TileLayer({ cLat, cLon, zoom, W, H }: TileLayerProps) {
         if (wty < 0 || wty >= nTiles) return null
         const url = `https://tile.openstreetmap.org/${zoom}/${wtx}/${wty}.png`
         return (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             key={`${tx}-${ty}`}
             src={url}
@@ -144,10 +145,12 @@ export default function SuspectMap({ locations, totalCount, noAddressCount }: Pr
 
   // Pan support
   const dragging = useRef(false)
+  const [isDragging, setIsDragging] = useState(false)
   const lastMouse = useRef({ x: 0, y: 0 })
 
   const handleMouseDown = (e: React.MouseEvent) => {
     dragging.current = true
+    setIsDragging(true)
     lastMouse.current = { x: e.clientX, y: e.clientY }
   }
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -163,7 +166,11 @@ export default function SuspectMap({ locations, totalCount, noAddressCount }: Pr
     setCLon(v => v + dLon)
     setCLat(v => Math.max(-85, Math.min(85, v + dLat)))
   }, [zoom, cLat])
-  const handleMouseUp = () => { dragging.current = false }
+  
+  const handleMouseUp = useCallback(() => {
+    dragging.current = false
+    setIsDragging(false)
+  }, [])
 
   useEffect(() => {
     window.addEventListener("mousemove", handleMouseMove)
@@ -172,7 +179,7 @@ export default function SuspectMap({ locations, totalCount, noAddressCount }: Pr
       window.removeEventListener("mousemove", handleMouseMove)
       window.removeEventListener("mouseup", handleMouseUp)
     }
-  }, [handleMouseMove])
+  }, [handleMouseMove, handleMouseUp])
 
   // Scroll-to-zoom
   const handleWheel = (e: React.WheelEvent) => {
@@ -184,10 +191,12 @@ export default function SuspectMap({ locations, totalCount, noAddressCount }: Pr
   useEffect(() => {
     if (locations.length === 0) return
     let cancelled = false
-    setLoading(true)
-    setGeocoded(0)
-    setGeoResults([])
+    
     ;(async () => {
+      setLoading(true)
+      setGeocoded(0)
+      setGeoResults([])
+
       for (let i = 0; i < locations.length; i++) {
         if (cancelled) break
         const loc = locations[i]
@@ -201,7 +210,7 @@ export default function SuspectMap({ locations, totalCount, noAddressCount }: Pr
       if (!cancelled) setLoading(false)
     })()
     return () => { cancelled = true }
-  }, [])
+  }, [locations])
 
   const maxCount = Math.max(...geoResults.map(r => r.count), 1)
 
@@ -248,7 +257,7 @@ export default function SuspectMap({ locations, totalCount, noAddressCount }: Pr
         <div
           ref={containerRef}
           className="relative select-none"
-          style={{ width: "100%", height: H, cursor: dragging.current ? "grabbing" : "grab" }}
+          style={{ width: "100%", height: H, cursor: isDragging ? "grabbing" : "grab" }}
           onMouseDown={handleMouseDown}
           onWheel={handleWheel}
         >
